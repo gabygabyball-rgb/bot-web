@@ -95,5 +95,12 @@ if (SOLO_WEB && process.env.DB_SYNC_URL) {
 }
 if (fs.existsSync(path.join(WEB, 'elo-api', 'server.js'))) run('web', 'node elo-api/server.js', WEB);
 else log('No encontré la carpeta elo-web: solo corre el bot.');
-if (process.env.WEB_BOT_TOKEN && fs.existsSync(path.join(WEB, 'web-bot', 'node_modules'))) run('web-bot', 'node src/index.js', path.join(WEB, 'web-bot'));
-else if (process.env.WEB_BOT_TOKEN) log('AVISO: falta instalar web-bot (revisa el Build Command de la guía).');
+if (process.env.WEB_BOT_TOKEN) {
+  const WB = path.join(WEB, 'web-bot');
+  if (fs.existsSync(WB) && !fs.existsSync(path.join(WB, 'node_modules'))) { // hosts sin Build Command: instala aquí
+    log('Instalando dependencias de web-bot (solo la primera vez)...');
+    try { require('child_process').execSync('npm install --omit=dev --no-audit --no-fund', { cwd: WB, stdio: 'inherit' }); }
+    catch (e) { log('AVISO: no pude instalar web-bot:', e.message); }
+  }
+  if (fs.existsSync(path.join(WB, 'node_modules'))) run('web-bot', 'node src/index.js', WB);
+}
