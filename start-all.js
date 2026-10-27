@@ -14,6 +14,16 @@ const ROOT = __dirname;
 const WEB = path.join(ROOT, 'elo-web');
 const log = (...a) => console.log('[start-all]', ...a);
 
+// Lee el archivo .env de la raíz (el que crea el panel de Wispbyte en "Ambiente"). No pisa variables ya definidas.
+try {
+  for (const line of fs.readFileSync(path.join(ROOT, '.env'), 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z_]\w*)\s*=\s*(.*?)\s*$/);
+    if (!m || line.trim().startsWith('#') || process.env[m[1]] !== undefined) continue;
+    process.env[m[1]] = /^(".*"|'.*')$/.test(m[2]) ? m[2].slice(1, -1) : m[2];
+  }
+  log('Variables leídas de .env');
+} catch { /* sin .env: se usan las variables del hosting */ }
+
 // --- dónde se guardan los datos (todo debe vivir dentro del Volume) ---
 // El bot guarda su db.json en <repo>/data (fijo en src/database.js). Ahí se monta el Volume.
 if (!process.env.BOT_DB_PATH) process.env.BOT_DB_PATH = path.join(ROOT, 'data', 'db.json');
