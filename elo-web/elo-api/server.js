@@ -40,6 +40,25 @@ const server = http.createServer((req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   const url = new URL(req.url, 'http://localhost');
   const ctx = { json, fail, opts: { dbPath: DB_PATH, guildId: GUILD_ID, demo: DEMO, botToken: DEMO ? '' : BOT_TOKEN } };
+  if (url.pathname === '/api/import/db' && req.method === 'POST') { // el bot del Elo (otro servidor) manda aquí su db.json
+    const key = process.env.EXPORT_KEY || '', got = String(req.headers['x-export-key'] || '');
+    const ok = key.length >= 16 && got.length === key.length && require('crypto').timingSafeEqual(Buffer.from(got), Buffer.from(key));
+    if (!ok) { req.resume(); return fail(res, 403, 'No autorizado.'); }
+    const chunks = []; let size = 0, tooBig = false;
+    req.on('data', c => { size += c.length; if (size > 30 * 1024 * 1024) { tooBig = true; req.destroy(); } else chunks.push(c); });
+    req.on('error', () => {});
+    req.on('end', () => {
+      if (tooBig) return;
+      try {
+        const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        if (!data || typeof data !== 'object' || typeof data.guilds !== 'object') return fail(res, 400, 'JSON inválido.');
+        fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+        const tmp = DB_PATH + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(data)); fs.renameSync(tmp, DB_PATH);
+        json(res, 200, { ok: true });
+      } catch { fail(res, 400, 'JSON inválido.'); }
+    });
+    return;
+  }
   if (url.pathname === '/api/export/db') { // el servicio nuevo descarga de aquí el db.json del bot
     const key = process.env.EXPORT_KEY || '', got = String(req.headers['x-export-key'] || '');
     const ok = key.length >= 16 && got.length === key.length && require('crypto').timingSafeEqual(Buffer.from(got), Buffer.from(key));
